@@ -1,7 +1,6 @@
 workflows:
   chinafast-entregador-android:
-    name: ChinaFast Entregador APK
-
+    name: ChinaFast Entregador APK Release
 
     max_build_duration: 60
 
@@ -42,12 +41,12 @@ workflows:
         script: |
           chmod +x android/gradlew
 
-      - name: Gerar APK de teste
+      - name: Gerar APK Release
         script: |
           cd android
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
 
     artifacts:
-      - android/app/build/outputs/apk/debug/*.apk
+      - android/app/build/outputs/apk/release/*.apk
       - android/app/build/outputs/**/*.apk
       - $HOME/.gradle/daemon/**/daemon-*.out.log
