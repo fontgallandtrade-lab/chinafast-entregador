@@ -1,5 +1,4 @@
 {
-
   "expo": {
     "name": "ChinaFast Entregador",
     "slug": "chinafast-entregador",
@@ -7,12 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#111111"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.chinafast.entregador"
@@ -20,19 +13,12 @@
     "android": {
       "package": "com.chinafast.entregador",
       "versionCode": 1,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#d71920"
-      },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION"
       ]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     }
   }
 }
