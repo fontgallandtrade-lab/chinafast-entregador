@@ -2,7 +2,6 @@ workflows:
   chinafast-entregador-android:
     name: ChinaFast Entregador APK
 
-    instance_type: linux_x2
 
     max_build_duration: 60
 
