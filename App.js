@@ -153,10 +153,12 @@ export default function App() {
     }
 
     const socket = io(SOCKET_URL, {
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
+      upgrade: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1500,
+      timeout: 20000,
     });
 
     socketRef.current = socket;
@@ -170,8 +172,9 @@ export default function App() {
       );
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       setSocketConnected(false);
+      console.log('Socket.IO desconectado:', reason);
     });
 
     socket.on(
