@@ -1,0 +1,54 @@
+workflows:
+  chinafast-entregador-android:
+    name: ChinaFast Entregador APK
+
+    instance_type: linux_x2
+
+    max_build_duration: 60
+
+    environment:
+      node: 22
+      java: 17
+
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/node_modules
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
+        - $HOME/.npm
+
+    scripts:
+      - name: Mostrar versões
+        script: |
+          node --version
+          npm --version
+          java -version
+
+      - name: Instalar dependências
+        script: |
+          npm ci
+
+      - name: Verificar projeto Expo
+        script: |
+          npx expo-doctor
+
+      - name: Gerar projeto Android
+        script: |
+          npx expo prebuild \
+            --platform android \
+            --clean \
+            --non-interactive
+
+      - name: Dar permissão ao Gradle
+        script: |
+          chmod +x android/gradlew
+
+      - name: Gerar APK de teste
+        script: |
+          cd android
+          ./gradlew assembleDebug
+
+    artifacts:
+      - android/app/build/outputs/apk/debug/*.apk
+      - android/app/build/outputs/**/*.apk
+      - $HOME/.gradle/daemon/**/daemon-*.out.log
