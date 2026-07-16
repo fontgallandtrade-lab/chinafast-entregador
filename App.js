@@ -116,26 +116,60 @@ export default function App() {
         );
       }
 
+      const profileResponse = await fetch(
+        `${API_URL}/driver/me`,
+        {
+          headers: {
+            Authorization: `Bearer ${data.token}`,
+          },
+        }
+      );
+
+      const profileData =
+        await profileResponse.json();
+
+      if (
+        !profileResponse.ok ||
+        !profileData.driver
+      ) {
+        throw new Error(
+          profileData.message ||
+            'Não foi possível carregar o perfil do entregador.'
+        );
+      }
+
+      const driverProfile =
+        profileData.driver;
+
       setToken(data.token);
+
       setDriver({
-        id:
-          data.driver?.id ||
-          data.user?.driver_id ||
-          data.user?.id,
-        userId: data.user?.id,
+        id: Number(driverProfile.id),
+        userId: Number(
+          driverProfile.user_id
+        ),
         name:
+          driverProfile.name ||
           data.user?.name ||
           'Entregador',
-        email: data.user?.email,
+        email:
+          driverProfile.email ||
+          data.user?.email,
+        phone:
+          driverProfile.phone ||
+          data.user?.phone,
         online: Boolean(
-          data.driver?.online
+          driverProfile.online
+        ),
+        approvalStatus:
+          driverProfile.approval_status,
+        rating: Number(
+          driverProfile.rating || 0
         ),
       });
 
       connectSocket(
-        data.driver?.id ||
-          data.user?.driver_id ||
-          data.user?.id
+        Number(driverProfile.id)
       );
     } catch (error) {
       Alert.alert(
