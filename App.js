@@ -57,6 +57,18 @@ export default function App() {
   const [locationError, setLocationError] =
     useState('');
 
+  const [availableDelivery, setAvailableDelivery] =
+    useState(null);
+
+  const [activeDelivery, setActiveDelivery] =
+    useState(null);
+
+  const [deliveriesLoading, setDeliveriesLoading] =
+    useState(false);
+
+  const [acceptingDelivery, setAcceptingDelivery] =
+    useState(false);
+
   const socketRef = useRef(null);
   const locationSubscriptionRef = useRef(null);
 
@@ -70,6 +82,23 @@ export default function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!token || !driver?.online) {
+      setAvailableDelivery(null);
+      return;
+    }
+
+    refreshDeliveries();
+
+    const interval = setInterval(() => {
+      refreshDeliveries();
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [token, driver?.online]);
 
   async function login() {
     if (!email.trim() || !password.trim()) {
@@ -420,6 +449,188 @@ export default function App() {
     }
   }
 
+  async function refreshDeliveries() {
+    if (!token) {
+      return;
+    }
+
+    setDeliveriesLoading(true);
+
+    try {
+      const myResponse = await fetch(
+        `${API_URL}/driver/deliveries/my`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const myData = await myResponse.json();
+
+      if (!myResponse.ok) {
+        throw new Error(
+          myData.message ||
+            'Erro ao carregar suas entregas.'
+        );
+      }
+
+      const activeStatuses = [
+        'accepted',
+        'driver_going_to_pickup',
+        'arrived_at_pickup',
+        'picked_up',
+        'in_transit',
+        'arrived_at_destination',
+      ];
+
+      const currentDelivery =
+        (myData.deliveries || []).find(
+          (item) =>
+            activeStatuses.includes(item.status)
+        ) || null;
+
+      setActiveDelivery(currentDelivery);
+
+      if (currentDelivery) {
+        setAvailableDelivery(null);
+
+        socketRef.current?.emit(
+          'join-delivery-room',
+          currentDelivery.id
+        );
+
+        return;
+      }
+
+      const availableResponse = await fetch(
+        `${API_URL}/driver/deliveries/available`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const availableData =
+        await availableResponse.json();
+
+      if (!availableResponse.ok) {
+        throw new Error(
+          availableData.message ||
+            'Erro ao buscar corridas.'
+        );
+      }
+
+      setAvailableDelivery(
+        availableData.deliveries?.[0] || null
+      );
+    } catch (error) {
+      console.log(
+        'Erro ao atualizar corridas:',
+        error.message
+      );
+    } finally {
+      setDeliveriesLoading(false);
+    }
+  }
+
+  async function acceptDelivery() {
+    if (!availableDelivery?.id || !token) {
+      return;
+    }
+
+    setAcceptingDelivery(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/driver/deliveries/${availableDelivery.id}/accept`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            'Não foi possível aceitar a corrida.'
+        );
+      }
+
+      Alert.alert(
+        'Corrida aceita',
+        'A entrega foi reservada para você.'
+      );
+
+      setAvailableDelivery(null);
+
+      socketRef.current?.emit(
+        'join-delivery-room',
+        availableDelivery.id
+      );
+
+      await refreshDeliveries();
+    } catch (error) {
+      Alert.alert(
+        'Erro ao aceitar',
+        error.message
+      );
+
+      await refreshDeliveries();
+    } finally {
+      setAcceptingDelivery(false);
+    }
+  }
+
+  function formatMoney(value) {
+    return Number(value || 0).toLocaleString(
+      'pt-BR',
+      {
+        style: 'currency',
+        currency: 'BRL',
+      }
+    );
+  }
+
+  function formatAddress(delivery, type) {
+    const prefix =
+      type === 'pickup'
+        ? 'pickup'
+        : 'destination';
+
+    return [
+      delivery?.[`${prefix}_street`],
+      delivery?.[`${prefix}_number`],
+      delivery?.[`${prefix}_neighborhood`],
+      delivery?.[`${prefix}_city`],
+    ]
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  function statusLabel(status) {
+    const labels = {
+      accepted: 'Corrida aceita',
+      driver_going_to_pickup:
+        'A caminho da coleta',
+      arrived_at_pickup:
+        'Chegou à coleta',
+      picked_up: 'Pacote coletado',
+      in_transit: 'Em trânsito',
+      arrived_at_destination:
+        'Chegou ao destino',
+      delivered: 'Entrega concluída',
+    };
+
+    return labels[status] || status;
+  }
+
   function logout() {
     if (driver?.online) {
       socketRef.current?.emit(
@@ -684,15 +895,174 @@ export default function App() {
           ) : null}
         </View>
 
-        <View style={styles.emptyDeliveryCard}>
-          <Text style={styles.cardTitle}>
-            Entrega ativa
-          </Text>
+        {activeDelivery ? (
+          <View style={styles.deliveryCard}>
+            <Text style={styles.deliveryBadge}>
+              ENTREGA ATIVA
+            </Text>
 
-          <Text style={styles.emptyText}>
-            Nenhuma entrega ativa neste momento.
-          </Text>
-        </View>
+            <Text style={styles.deliveryCode}>
+              {activeDelivery.public_code}
+            </Text>
+
+            <Text style={styles.deliveryStatus}>
+              {statusLabel(activeDelivery.status)}
+            </Text>
+
+            <View style={styles.routeBox}>
+              <Text style={styles.routeLabel}>
+                COLETA
+              </Text>
+
+              <Text style={styles.routeText}>
+                {formatAddress(
+                  activeDelivery,
+                  'pickup'
+                )}
+              </Text>
+
+              <Text style={styles.routeLabel}>
+                DESTINO
+              </Text>
+
+              <Text style={styles.routeText}>
+                {formatAddress(
+                  activeDelivery,
+                  'destination'
+                )}
+              </Text>
+            </View>
+
+            <View style={styles.deliveryFooter}>
+              <View>
+                <Text style={styles.footerLabel}>
+                  Distância
+                </Text>
+
+                <Text style={styles.footerValue}>
+                  {Number(
+                    activeDelivery.route_distance_km ||
+                      0
+                  ).toFixed(1)}{' '}
+                  km
+                </Text>
+              </View>
+
+              <View>
+                <Text style={styles.footerLabel}>
+                  Você recebe
+                </Text>
+
+                <Text style={styles.moneyValue}>
+                  {formatMoney(
+                    activeDelivery.driver_amount
+                  )}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : availableDelivery ? (
+          <View style={styles.offerCard}>
+            <Text style={styles.offerBadge}>
+              NOVA CORRIDA
+            </Text>
+
+            <Text style={styles.deliveryCode}>
+              {availableDelivery.public_code}
+            </Text>
+
+            <View style={styles.routeBox}>
+              <Text style={styles.routeLabel}>
+                COLETA
+              </Text>
+
+              <Text style={styles.routeText}>
+                {formatAddress(
+                  availableDelivery,
+                  'pickup'
+                )}
+              </Text>
+
+              <Text style={styles.routeLabel}>
+                DESTINO
+              </Text>
+
+              <Text style={styles.routeText}>
+                {formatAddress(
+                  availableDelivery,
+                  'destination'
+                )}
+              </Text>
+            </View>
+
+            <View style={styles.deliveryFooter}>
+              <View>
+                <Text style={styles.footerLabel}>
+                  Distância
+                </Text>
+
+                <Text style={styles.footerValue}>
+                  {Number(
+                    availableDelivery.route_distance_km ||
+                      0
+                  ).toFixed(1)}{' '}
+                  km
+                </Text>
+              </View>
+
+              <View>
+                <Text style={styles.footerLabel}>
+                  Você recebe
+                </Text>
+
+                <Text style={styles.moneyValue}>
+                  {formatMoney(
+                    availableDelivery.driver_amount
+                  )}
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={[
+                styles.acceptButton,
+                acceptingDelivery &&
+                  styles.buttonDisabled,
+              ]}
+              disabled={acceptingDelivery}
+              onPress={acceptDelivery}
+            >
+              {acceptingDelivery ? (
+                <ActivityIndicator
+                  color="#ffffff"
+                />
+              ) : (
+                <Text
+                  style={styles.acceptButtonText}
+                >
+                  ACEITAR CORRIDA
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.emptyDeliveryCard}>
+            <Text style={styles.cardTitle}>
+              Corridas
+            </Text>
+
+            {deliveriesLoading ? (
+              <ActivityIndicator
+                color="#d71920"
+              />
+            ) : (
+              <Text style={styles.emptyText}>
+                Nenhuma corrida disponível neste
+                momento.
+              </Text>
+            )}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -899,6 +1269,123 @@ const styles = StyleSheet.create({
     padding: 22,
     borderRadius: 20,
     backgroundColor: '#ffffff',
+  },
+
+  deliveryCard: {
+    padding: 22,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+  },
+
+  offerCard: {
+    padding: 22,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    borderWidth: 3,
+    borderColor: '#d71920',
+  },
+
+  offerBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#d71920',
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+
+  deliveryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#2e7d32',
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+
+  deliveryCode: {
+    color: '#111111',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+
+  deliveryStatus: {
+    color: '#2e7d32',
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 6,
+  },
+
+  routeBox: {
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#f3f3f3',
+  },
+
+  routeLabel: {
+    color: '#777777',
+    fontSize: 11,
+    fontWeight: '900',
+    marginTop: 7,
+  },
+
+  routeText: {
+    color: '#111111',
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 22,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+
+  deliveryFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+
+  footerLabel: {
+    color: '#777777',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  footerValue: {
+    color: '#111111',
+    fontSize: 19,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+
+  moneyValue: {
+    color: '#2e7d32',
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+
+  acceptButton: {
+    height: 58,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2e7d32',
+    marginTop: 22,
+  },
+
+  acceptButtonText: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '900',
   },
 
   cardTitle: {
