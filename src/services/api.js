@@ -1,4 +1,6 @@
-import { API_URL } from '../constants/config';
+import {
+  API_URL,
+} from '../constants/config';
 
 async function request(
   endpoint,
@@ -8,74 +10,127 @@ async function request(
     body,
   } = {}
 ) {
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  const options = {
     method,
+
     headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
+      Accept:
+        'application/json',
+
+      'Content-Type':
+        'application/json',
+
       ...(token
         ? {
-            Authorization: `Bearer ${token}`,
+            Authorization:
+              `Bearer ${token}`,
           }
         : {}),
     },
-    ...(body
-      ? {
-          body: JSON.stringify(body),
-        }
-      : {}),
-  });
+  };
+
+  if (
+    body !== undefined &&
+    body !== null
+  ) {
+    options.body =
+      JSON.stringify(body);
+  }
+
+  let response;
+
+  try {
+    response = await fetch(
+      `${API_URL}${endpoint}`,
+      options
+    );
+  } catch (error) {
+    throw new Error(
+      'Não foi possível conectar ao servidor.'
+    );
+  }
 
   let data;
 
   try {
     data = await response.json();
-  } catch {
+  } catch (error) {
     data = {
       success: false,
-      message: 'Resposta inválida do servidor.',
+      message:
+        'Resposta inválida do servidor.',
     };
   }
 
   if (!response.ok) {
-    throw new Error(
-      data.message || 'Erro na comunicação com o servidor.'
-    );
+    const requestError =
+      new Error(
+        data.message ||
+          'Erro na comunicação com o servidor.'
+      );
+
+    requestError.status =
+      response.status;
+
+    requestError.data = data;
+
+    throw requestError;
   }
 
   return data;
 }
 
 export const api = {
-  login(email, password) {
-    return request('/auth/login', {
-      method: 'POST',
-      body: {
-        email,
-        password,
-      },
-    });
+  login(
+    email,
+    password
+  ) {
+    return request(
+      '/auth/login',
+      {
+        method: 'POST',
+
+        body: {
+          email,
+          password,
+        },
+      }
+    );
   },
 
   driverProfile(token) {
-    return request('/driver/me', {
-      token,
-    });
+    return request(
+      '/driver/me',
+      {
+        token,
+      }
+    );
   },
 
-  availableDeliveries(token) {
-    return request('/driver/deliveries/available', {
-      token,
-    });
+  availableDeliveries(
+    token
+  ) {
+    return request(
+      '/driver/deliveries/available',
+      {
+        token,
+      }
+    );
   },
 
   myDeliveries(token) {
-    return request('/driver/deliveries/my', {
-      token,
-    });
+    return request(
+      '/driver/deliveries/my',
+      {
+        token,
+      }
+    );
   },
 
-  acceptDelivery(token, deliveryId) {
+  acceptDelivery(
+    token,
+    deliveryId
+  ) {
     return request(
       `/driver/deliveries/${deliveryId}/accept`,
       {
@@ -95,11 +150,19 @@ export const api = {
       `/driver/deliveries/${deliveryId}/status`,
       {
         token,
+
         method: 'PATCH',
+
         body: {
           status,
-          latitude: location?.latitude,
-          longitude: location?.longitude,
+
+          latitude:
+            location?.latitude ??
+            null,
+
+          longitude:
+            location?.longitude ??
+            null,
         },
       }
     );
@@ -115,11 +178,22 @@ export const api = {
       `/driver/deliveries/${deliveryId}/confirm-pickup`,
       {
         token,
+
         method: 'POST',
+
         body: {
-          pickup_code: pickupCode,
-          latitude: location?.latitude,
-          longitude: location?.longitude,
+          pickup_code:
+            String(
+              pickupCode || ''
+            ).trim(),
+
+          latitude:
+            location?.latitude ??
+            null,
+
+          longitude:
+            location?.longitude ??
+            null,
         },
       }
     );
@@ -135,42 +209,78 @@ export const api = {
       `/driver/deliveries/${deliveryId}/confirm-delivery`,
       {
         token,
+
         method: 'POST',
+
         body: {
-          delivery_code: deliveryCode,
-          latitude: location?.latitude,
-          longitude: location?.longitude,
+          delivery_code:
+            String(
+              deliveryCode || ''
+            ).trim(),
+
+          latitude:
+            location?.latitude ??
+            null,
+
+          longitude:
+            location?.longitude ??
+            null,
         },
       }
     );
   },
 
   wallet(token) {
-    return request('/wallet', {
-      token,
-    });
+    return request(
+      '/driver/wallet',
+      {
+        token,
+      }
+    );
   },
 
-  walletStatement(token) {
-    return request('/wallet/statement', {
-      token,
-    });
+  walletStatement(
+    token
+  ) {
+    return request(
+      '/driver/wallet/statement',
+      {
+        token,
+      }
+    );
   },
 
-  requestWithdrawal(token, amount, pixKey) {
-    return request('/wallet/withdrawals', {
-      token,
-      method: 'POST',
-      body: {
-        amount: Number(amount),
-        pix_key: pixKey,
-      },
-    });
+  requestWithdrawal(
+    token,
+    amount,
+    pixKey
+  ) {
+    return request(
+      '/driver/wallet/withdrawals',
+      {
+        token,
+
+        method: 'POST',
+
+        body: {
+          amount:
+            Number(amount),
+
+          pix_key:
+            String(
+              pixKey || ''
+            ).trim(),
+        },
+      }
+    );
   },
 
   withdrawals(token) {
-    return request('/wallet/withdrawals', {
-      token,
-    });
+    return request(
+      '/driver/wallet/withdrawals',
+      {
+        token,
+      }
+    );
   },
 };
