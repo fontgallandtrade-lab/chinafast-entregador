@@ -1,80 +1,54 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 
 const COUPON_KEY = '@chinafast:coupon';
 const USED_COUPONS_KEY = '@chinafast:used_coupons';
 
 export class CouponSystem {
   
+  // 🔍 VALIDAR CUPOM - VERIFICA TODAS AS REGRAS
   static async validateCoupon(couponCode) {
     try {
       const coupon = await this.getTodayCoupon();
       if (!coupon) {
-        return { 
-          valid: false, 
-          message: '❌ Cupom não encontrado' 
-        };
+        return { valid: false, message: '❌ Cupom não encontrado' };
       }
 
       if (coupon.code !== couponCode) {
-        return { 
-          valid: false, 
-          message: '❌ Código inválido' 
-        };
+        return { valid: false, message: '❌ Código inválido' };
       }
 
+      // ❌ JÁ FOI USADO?
       if (coupon.status === 'used') {
-        return { 
-          valid: false, 
-          message: '❌ Este cupom já foi utilizado' 
-        };
+        return { valid: false, message: '❌ Este cupom já foi utilizado' };
       }
 
+      // 📅 É DO MESMO DIA?
       const today = new Date().toDateString();
       if (coupon.date !== today) {
-        return { 
-          valid: false, 
-          message: '❌ Cupom expirado (data inválida)' 
-        };
+        return { valid: false, message: '❌ Cupom expirado (data inválida)' };
       }
 
+      // ⏰ AINDA ESTÁ DENTRO DO HORÁRIO? (13:00)
       const now = new Date();
       const expires = new Date(coupon.expiresAt);
       if (now > expires) {
         await AsyncStorage.removeItem(COUPON_KEY);
-        return { 
-          valid: false, 
-          message: '⏰ Cupom expirado! Válido apenas até 13h' 
-        };
+        return { valid: false, message: '⏰ Cupom expirado! Válido apenas até 13h' };
       }
 
-      const driverId = await AsyncStorage.getItem('@chinafast:driver_id');
-      if (coupon.driverId && coupon.driverId !== driverId) {
-        return { 
-          valid: false, 
-          message: '❌ Cupom não pertence a este entregador' 
-        };
-      }
-
-      return {
-        valid: true,
-        message: '✅ Cupom válido!',
-        coupon: coupon,
-      };
+      return { valid: true, message: '✅ Cupom válido!', coupon: coupon };
     } catch (error) {
-      console.log('Erro na validação:', error);
-      return { 
-        valid: false, 
-        message: '❌ Erro ao validar cupom' 
-      };
+      return { valid: false, message: '❌ Erro ao validar cupom' };
     }
   }
 
+  // 🎯 GERAR CUPOM - SÓ SE FOR ANTES DAS 13H E NÃO TIVER CUPOM HOJE
   static async generateCouponOnOnline(driverId) {
     try {
       const today = new Date();
       const hour = today.getHours();
       
+      // ⏰ SÓ GERA SE FOR ANTES DAS 13H
       if (hour >= 13) {
         return { 
           generated: false, 
@@ -82,6 +56,7 @@ export class CouponSystem {
         };
       }
       
+      // 📅 VERIFICA SE JÁ TEM CUPOM HOJE
       const existing = await this.getTodayCoupon();
       if (existing) {
         const validation = await this.validateCoupon(existing.code);
@@ -92,10 +67,12 @@ export class CouponSystem {
             coupon: existing 
           };
         } else {
+          // Se expirou, remove e gera novo
           await AsyncStorage.removeItem(COUPON_KEY);
         }
       }
       
+      // 🔢 GERAR CÓDIGO ÚNICO
       const couponCode = this.generateSecureCouponCode(driverId);
       const expiresAt = this.getExpirationTime();
       
@@ -108,8 +85,6 @@ export class CouponSystem {
         status: 'active',
         driverId: driverId || 'unknown',
         generatedAt: today.toISOString(),
-        hash: this.generateHash(couponCode, driverId),
-        securityVersion: '2.0',
       };
       
       await AsyncStorage.setItem(COUPON_KEY, JSON.stringify(coupon));
@@ -120,23 +95,17 @@ export class CouponSystem {
         coupon: coupon,
       };
     } catch (error) {
-      console.log('Erro ao gerar cupom:', error);
-      return {
-        generated: false,
-        message: '❌ Erro ao gerar cupom',
-      };
+      return { generated: false, message: '❌ Erro ao gerar cupom' };
     }
   }
 
+  // 🔢 GERAR CÓDIGO COM DATA
   static generateSecureCouponCode(driverId) {
     const today = new Date();
     const date = today.toISOString().slice(0,10).replace(/-/g, '');
-    const driverHash = this.simpleHash(driverId || 'unknown');
     const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    const time = today.getHours().toString().padStart(2, '0') + 
-                 today.getMinutes().toString().padStart(2, '0');
-    
-    return `MARMI-${date}-${driverHash}-${random}-${time}`;
+    const hash = this.simpleHash(driverId || 'unknown').substring(0, 6);
+    return `MARMI-${date}-${hash}-${random}`;
   }
 
   static simpleHash(text) {
@@ -146,20 +115,17 @@ export class CouponSystem {
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash;
     }
-    return Math.abs(hash).toString(36).substring(0, 6).toUpperCase();
+    return Math.abs(hash).toString(36).toUpperCase();
   }
 
-  static generateHash(code, driverId) {
-    const data = `${code}-${driverId}-${new Date().toDateString()}`;
-    return this.simpleHash(data);
-  }
-
+  // ⏰ EXPIRA ÀS 13:00 DO MESMO DIA
   static getExpirationTime() {
     const today = new Date();
     today.setHours(13, 0, 0, 0);
     return today.toISOString();
   }
 
+  // 🔍 BUSCAR CUPOM DO DIA (SÓ O DE HOJE)
   static async getTodayCoupon() {
     try {
       const data = await AsyncStorage.getItem(COUPON_KEY);
@@ -168,32 +134,38 @@ export class CouponSystem {
       const coupon = JSON.parse(data);
       const today = new Date().toDateString();
       
+      // Se não for de hoje, ignorar
       if (coupon.date !== today) {
+        return null;
+      }
+      
+      // Se já passou das 13h, ignorar
+      const now = new Date();
+      const expires = new Date(coupon.expiresAt);
+      if (now > expires && coupon.status === 'active') {
+        coupon.status = 'expired';
+        await AsyncStorage.setItem(COUPON_KEY, JSON.stringify(coupon));
         return null;
       }
       
       return coupon;
     } catch (error) {
-      console.log('Erro ao buscar cupom:', error);
       return null;
     }
   }
 
+  // 🍽️ USAR CUPOM - MARCA COMO USADO
   static async useCoupon(couponCode) {
     try {
       const validation = await this.validateCoupon(couponCode);
       if (!validation.valid) {
-        return { 
-          success: false, 
-          message: validation.message 
-        };
+        return { success: false, message: validation.message };
       }
 
       const coupon = validation.coupon;
       coupon.status = 'used';
       coupon.usedAt = new Date().toISOString();
       await AsyncStorage.setItem(COUPON_KEY, JSON.stringify(coupon));
-
       await this.registerUsedCoupon(coupon);
 
       return { 
@@ -202,29 +174,26 @@ export class CouponSystem {
         coupon: coupon,
       };
     } catch (error) {
-      console.log('Erro ao usar cupom:', error);
-      return { 
-        success: false, 
-        message: '❌ Erro ao usar cupom' 
-      };
+      return { success: false, message: '❌ Erro ao usar cupom' };
     }
   }
 
+  // 📝 REGISTRAR CUPOM USADO (HISTÓRICO)
   static async registerUsedCoupon(coupon) {
     try {
       const data = await AsyncStorage.getItem(USED_COUPONS_KEY);
       const usedCoupons = data ? JSON.parse(data) : [];
       usedCoupons.push({
         code: coupon.code,
-        usedAt: coupon.usedAt,
+        usedAt: coupon.usedAt || new Date().toISOString(),
         driverId: coupon.driverId,
+        date: coupon.date,
       });
       await AsyncStorage.setItem(USED_COUPONS_KEY, JSON.stringify(usedCoupons));
-    } catch (error) {
-      console.log('Erro ao registrar cupom usado:', error);
-    }
+    } catch (error) {}
   }
 
+  // ⏰ TEMPO RESTANTE PARA EXPIRAR
   static getTimeUntilExpiration() {
     const now = new Date();
     const expires = new Date();
@@ -236,29 +205,19 @@ export class CouponSystem {
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     
-    return `⏰ Expira em ${hours}h${minutes}min`;
+    if (hours > 0) {
+      return `⏰ Expira em ${hours}h${minutes}min`;
+    }
+    return `⏰ Expira em ${minutes}min`;
   }
 
+  // 🔍 VERIFICAR SE PODE GERAR CUPOM
   static isCouponAvailable() {
     const now = new Date();
-    const hour = now.getHours();
-    return hour < 13;
+    return now.getHours() < 13;
   }
 
-  static async blockCoupon(couponCode) {
-    try {
-      const coupon = await this.getTodayCoupon();
-      if (coupon && coupon.code === couponCode) {
-        coupon.status = 'blocked';
-        await AsyncStorage.setItem(COUPON_KEY, JSON.stringify(coupon));
-        return { success: true, message: '🔒 Cupom bloqueado por segurança' };
-      }
-      return { success: false, message: '❌ Cupom não encontrado' };
-    } catch (error) {
-      return { success: false, message: '❌ Erro ao bloquear cupom' };
-    }
-  }
-
+  // 🧹 LIMPAR CUPONS EXPIRADOS
   static async cleanExpiredCoupons() {
     try {
       const coupon = await this.getTodayCoupon();
@@ -272,7 +231,6 @@ export class CouponSystem {
       }
       return { cleaned: false, message: '✅ Nenhum cupom para limpar' };
     } catch (error) {
-      console.log('Erro ao limpar cupons:', error);
       return { cleaned: false, message: '❌ Erro ao limpar' };
     }
   }
