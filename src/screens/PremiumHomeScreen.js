@@ -30,6 +30,8 @@ import { useAuth } from '../context/AuthContext';
 import { useDeliveries } from '../context/DeliveryContext';
 import useLocationTracking from '../hooks/useLocationTracking';
 import { getSocket } from '../services/socket';
+import { scheduleDeliveryNotification } from '../services/notifications';
+import { useSound } from '../hooks/useSound';
 
 const THEME_KEY = '@chinafast:theme';
 const { width } = Dimensions.get('window');
@@ -54,6 +56,7 @@ export default function PremiumHomeScreen({ navigation }) {
   
   const fadeAnim = useState(new Animated.Value(0))[0];
   const { location, permissionGranted } = useLocationTracking(
+  const { playNewDeliverySound } = useSound();
     driver?.id,
     Boolean(driver?.online),
     activeDelivery?.id
@@ -75,6 +78,7 @@ export default function PremiumHomeScreen({ navigation }) {
     if (availableDelivery && !callVisible && !activeDelivery) {
       setCurrentDelivery(availableDelivery);
       setCallVisible(true);
+      playNewDeliverySound();
     }
   }, [availableDelivery]);
 
