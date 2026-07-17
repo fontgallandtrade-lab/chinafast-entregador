@@ -19,6 +19,11 @@
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION"
       ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ed8c5436-7807-47b0-b370-0ae666cbf022"
+      }
     }
   }
 }
