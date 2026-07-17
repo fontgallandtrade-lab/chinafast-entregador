@@ -1,7 +1,5 @@
 import React, {
-  useEffect,
   useMemo,
-  useRef,
 } from 'react';
 
 import {
@@ -10,158 +8,336 @@ import {
   View,
 } from 'react-native';
 
-import MapView, {
-  Marker,
-  PROVIDER_GOOGLE,
-} from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 
 import colors from '../theme/colors';
 
-const DEFAULT_REGION = {
+const DEFAULT_LOCATION = {
   latitude: -23.3556,
   longitude: -47.8569,
-  latitudeDelta: 0.04,
-  longitudeDelta: 0.04,
 };
+
+function toValidCoordinate(value, fallback) {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 export default function PremiumMap({
   location,
   delivery,
 }) {
-  const mapRef = useRef(null);
-
-  const region = useMemo(() => {
-    if (
-      location?.latitude &&
-      location?.longitude
-    ) {
-      return {
-        latitude: Number(
-          location.latitude
-        ),
-        longitude: Number(
-          location.longitude
-        ),
-        latitudeDelta: 0.025,
-        longitudeDelta: 0.025,
-      };
-    }
-
-    return DEFAULT_REGION;
-  }, [
-    location?.latitude,
-    location?.longitude,
-  ]);
-
-  useEffect(() => {
-    if (
-      !mapRef.current ||
-      !location?.latitude ||
-      !location?.longitude
-    ) {
-      return;
-    }
-
-    mapRef.current.animateToRegion(
-      region,
-      700
+  const hasLocation =
+    Number.isFinite(
+      Number(location?.latitude)
+    ) &&
+    Number.isFinite(
+      Number(location?.longitude)
     );
+
+  const currentLatitude =
+    toValidCoordinate(
+      location?.latitude,
+      DEFAULT_LOCATION.latitude
+    );
+
+  const currentLongitude =
+    toValidCoordinate(
+      location?.longitude,
+      DEFAULT_LOCATION.longitude
+    );
+
+  const pickupLatitude =
+    toValidCoordinate(
+      delivery?.pickup_latitude,
+      null
+    );
+
+  const pickupLongitude =
+    toValidCoordinate(
+      delivery?.pickup_longitude,
+      null
+    );
+
+  const destinationLatitude =
+    toValidCoordinate(
+      delivery?.destination_latitude,
+      null
+    );
+
+  const destinationLongitude =
+    toValidCoordinate(
+      delivery?.destination_longitude,
+      null
+    );
+
+  const html = useMemo(() => {
+    const pickupCity = escapeHtml(
+      delivery?.pickup_city ||
+        'Local de coleta'
+    );
+
+    const destinationCity = escapeHtml(
+      delivery?.destination_city ||
+        'Local de entrega'
+    );
+
+    const pickupMarker =
+      pickupLatitude !== null &&
+      pickupLongitude !== null
+        ? `
+          L.marker(
+            [${pickupLatitude}, ${pickupLongitude}],
+            { icon: pickupIcon }
+          )
+          .addTo(map)
+          .bindPopup(
+            '<strong>Coleta</strong><br>${pickupCity}'
+          );
+
+          bounds.push(
+            [${pickupLatitude}, ${pickupLongitude}]
+          );
+        `
+        : '';
+
+    const destinationMarker =
+      destinationLatitude !== null &&
+      destinationLongitude !== null
+        ? `
+          L.marker(
+            [
+              ${destinationLatitude},
+              ${destinationLongitude}
+            ],
+            { icon: destinationIcon }
+          )
+          .addTo(map)
+          .bindPopup(
+            '<strong>Destino</strong><br>${destinationCity}'
+          );
+
+          bounds.push(
+            [
+              ${destinationLatitude},
+              ${destinationLongitude}
+            ]
+          );
+        `
+        : '';
+
+    return `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+        <head>
+          <meta
+            name="viewport"
+            content="width=device-width,
+            initial-scale=1.0,
+            maximum-scale=1.0,
+            user-scalable=no"
+          />
+
+          <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          />
+
+          <style>
+            html,
+            body,
+            #map {
+              width: 100%;
+              height: 100%;
+              margin: 0;
+              padding: 0;
+              background: #e9edf2;
+            }
+
+            .custom-marker {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              border: 3px solid #ffffff;
+              border-radius: 50%;
+              box-shadow:
+                0 3px 12px
+                rgba(0, 0, 0, 0.28);
+              font-family:
+                Arial,
+                sans-serif;
+              font-weight: 900;
+            }
+
+            .driver-marker {
+              width: 44px;
+              height: 44px;
+              background: #ff6b00;
+              font-size: 22px;
+            }
+
+            .pickup-marker {
+              width: 34px;
+              height: 34px;
+              background: #22a06b;
+              color: #ffffff;
+              font-size: 15px;
+            }
+
+            .destination-marker {
+              width: 34px;
+              height: 34px;
+              background: #ff6b00;
+              color: #ffffff;
+              font-size: 15px;
+            }
+
+            .leaflet-control-attribution {
+              font-size: 9px;
+            }
+          </style>
+        </head>
+
+        <body>
+          <div id="map"></div>
+
+          <script
+            src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          ></script>
+
+          <script>
+            const map = L.map(
+              'map',
+              {
+                zoomControl: true,
+                attributionControl: true
+              }
+            ).setView(
+              [
+                ${currentLatitude},
+                ${currentLongitude}
+              ],
+              15
+            );
+
+            L.tileLayer(
+              'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              {
+                maxZoom: 19,
+                attribution:
+                  '&copy; OpenStreetMap contributors'
+              }
+            ).addTo(map);
+
+            const driverIcon = L.divIcon({
+              className: '',
+              html:
+                '<div class="custom-marker driver-marker">🚚</div>',
+              iconSize: [50, 50],
+              iconAnchor: [25, 25],
+              popupAnchor: [0, -24]
+            });
+
+            const pickupIcon = L.divIcon({
+              className: '',
+              html:
+                '<div class="custom-marker pickup-marker">C</div>',
+              iconSize: [40, 40],
+              iconAnchor: [20, 20],
+              popupAnchor: [0, -18]
+            });
+
+            const destinationIcon = L.divIcon({
+              className: '',
+              html:
+                '<div class="custom-marker destination-marker">D</div>',
+              iconSize: [40, 40],
+              iconAnchor: [20, 20],
+              popupAnchor: [0, -18]
+            });
+
+            const bounds = [];
+
+            L.marker(
+              [
+                ${currentLatitude},
+                ${currentLongitude}
+              ],
+              { icon: driverIcon }
+            )
+            .addTo(map)
+            .bindPopup(
+              '<strong>Você</strong><br>Entregador ChinaFast'
+            );
+
+            bounds.push(
+              [
+                ${currentLatitude},
+                ${currentLongitude}
+              ]
+            );
+
+            ${pickupMarker}
+
+            ${destinationMarker}
+
+            if (bounds.length > 1) {
+              map.fitBounds(
+                bounds,
+                {
+                  padding: [55, 55],
+                  maxZoom: 16
+                }
+              );
+            }
+
+            setTimeout(
+              function () {
+                map.invalidateSize();
+              },
+              300
+            );
+          </script>
+        </body>
+      </html>
+    `;
   }, [
-    location?.latitude,
-    location?.longitude,
-    region,
+    currentLatitude,
+    currentLongitude,
+    pickupLatitude,
+    pickupLongitude,
+    destinationLatitude,
+    destinationLongitude,
+    delivery?.pickup_city,
+    delivery?.destination_city,
   ]);
 
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
+      <WebView
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={region}
-        showsUserLocation
-        showsMyLocationButton
-        showsCompass
-        loadingEnabled
-      >
-        {location?.latitude &&
-        location?.longitude ? (
-          <Marker
-            coordinate={{
-              latitude: Number(
-                location.latitude
-              ),
-              longitude: Number(
-                location.longitude
-              ),
-            }}
-            title="Você"
-            description="Entregador ChinaFast"
-          >
-            <View style={styles.driverMarker}>
-              <Text style={styles.driverIcon}>
-                🚚
-              </Text>
-            </View>
-          </Marker>
-        ) : null}
+        source={{ html }}
+        originWhitelist={['*']}
+        javaScriptEnabled
+        domStorageEnabled
+        mixedContentMode="always"
+        allowFileAccess
+        allowUniversalAccessFromFileURLs
+        setSupportMultipleWindows={false}
+      />
 
-        {delivery?.pickup_latitude &&
-        delivery?.pickup_longitude ? (
-          <Marker
-            coordinate={{
-              latitude: Number(
-                delivery.pickup_latitude
-              ),
-              longitude: Number(
-                delivery.pickup_longitude
-              ),
-            }}
-            title="Coleta"
-            description={
-              delivery.pickup_city ||
-              'Local de coleta'
-            }
-          >
-            <View style={styles.pickupMarker}>
-              <Text style={styles.markerText}>
-                C
-              </Text>
-            </View>
-          </Marker>
-        ) : null}
-
-        {delivery?.destination_latitude &&
-        delivery?.destination_longitude ? (
-          <Marker
-            coordinate={{
-              latitude: Number(
-                delivery.destination_latitude
-              ),
-              longitude: Number(
-                delivery.destination_longitude
-              ),
-            }}
-            title="Destino"
-            description={
-              delivery.destination_city ||
-              'Local de entrega'
-            }
-          >
-            <View
-              style={
-                styles.destinationMarker
-              }
-            >
-              <Text style={styles.markerText}>
-                D
-              </Text>
-            </View>
-          </Marker>
-        ) : null}
-      </MapView>
-
-      {!location ? (
+      {!hasLocation ? (
         <View style={styles.locationWarning}>
           <Text style={styles.warningTitle}>
             Localização indisponível
@@ -181,54 +357,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     overflow: 'hidden',
-    backgroundColor: colors.background,
+    backgroundColor:
+      colors.background,
   },
 
   map: {
-    ...StyleSheet.absoluteFillObject,
-  },
-
-  driverMarker: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderWidth: 3,
-    borderColor: '#ffffff',
-  },
-
-  driverIcon: {
-    fontSize: 23,
-  },
-
-  pickupMarker: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.success,
-    borderWidth: 3,
-    borderColor: '#ffffff',
-  },
-
-  destinationMarker: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderWidth: 3,
-    borderColor: '#ffffff',
-  },
-
-  markerText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '900',
+    flex: 1,
+    backgroundColor:
+      colors.background,
   },
 
   locationWarning: {
@@ -238,7 +374,8 @@ const styles = StyleSheet.create({
     right: 18,
     padding: 14,
     borderRadius: 16,
-    backgroundColor: colors.mapOverlay,
+    backgroundColor:
+      colors.mapOverlay,
   },
 
   warningTitle: {
