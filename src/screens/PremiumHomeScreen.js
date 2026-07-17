@@ -22,7 +22,6 @@ import PremiumMap from '../components/PremiumMap';
 import SideMenu from '../components/SideMenu';
 import CallAlert from '../components/CallAlert';
 import SmartButton from '../components/SmartButton';
-import SOSButton from '../components/SOSButton';
 import DailyProgress from '../components/DailyProgress';
 import CouponCard from '../components/CouponCard';
 import { CouponSystem } from '../utils/CouponSystem';
@@ -244,13 +243,13 @@ export default function PremiumHomeScreen({ navigation }) {
             </View>
 
             <View style={styles.smartButtonContainer}>
+              <SOSButton darkMode={darkMode} location={location} />
               <SmartButton 
                 status={smartStatus}
                 onPress={toggleOnline}
                 darkMode={darkMode}
                 disabled={changingOnline}
               />
-              <SOSButton darkMode={darkMode} location={location} />
             </View>
           </View>
 
@@ -494,6 +493,7 @@ function getStyles(darkMode) {
     successText: { color: '#4caf50' },
     dangerText: { color: '#f44336' },
     smartButtonContainer: { position: 'absolute', bottom: 55, left: 12, right: 12, flexDirection: 'row', gap: 8, alignItems: 'center' },
+              <SOSButton darkMode={darkMode} location={location} />
     statusCard: { backgroundColor: bgCard, marginHorizontal: 12, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: borderColor },
     statusCardDark: { backgroundColor: bgSecondary },
     statusCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },

@@ -42,6 +42,7 @@ function getStyles(darkMode) {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: 52,
+      flex: 1,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.2,
