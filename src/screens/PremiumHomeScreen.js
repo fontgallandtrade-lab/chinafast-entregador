@@ -2,7 +2,6 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
@@ -12,6 +11,10 @@ import {
   useMemo,
   useState,
 } from 'react';
+
+import {
+  SafeAreaView,
+} from 'react-native-safe-area-context';
 
 import PremiumHeader from '../components/PremiumHeader';
 import PremiumMap from '../components/PremiumMap';
@@ -224,7 +227,10 @@ export default function PremiumHomeScreen({
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={styles.container}
+      edges={['top', 'left', 'right']}
+    >
       <PremiumHeader
         driverName={
           driver?.name || 'Entregador'
