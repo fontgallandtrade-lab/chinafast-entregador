@@ -12,6 +12,7 @@ import {
   Dimensions,
   Vibration,
   Linking,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -43,12 +44,14 @@ export default function PremiumHomeScreen({ navigation }) {
   const [accepting, setAccepting] = useState(false);
   const [ignoredDeliveryIds, setIgnoredDeliveryIds] = useState([]);
   const [darkMode, setDarkMode] = useState(false);
-  const [contadorEntregas, setContadorEntregas] = useState(269);
+  const [contadorEntregas, setContadorEntregas] = useState(271);
   const [modalDetalhes, setModalDetalhes] = useState(false);
   const [callVisible, setCallVisible] = useState(false);
   const [currentDelivery, setCurrentDelivery] = useState(null);
   const [smartStatus, setSmartStatus] = useState('offline');
   const [couponMessage, setCouponMessage] = useState(null);
+  const [couponModalVisible, setCouponModalVisible] = useState(false);
+  const [couponData, setCouponData] = useState(null);
   
   const fadeAnim = useState(new Animated.Value(0))[0];
   const { location, permissionGranted } = useLocationTracking(
@@ -60,6 +63,7 @@ export default function PremiumHomeScreen({ navigation }) {
   useEffect(() => {
     loadTheme();
     animateEntrance();
+    loadCouponData();
     
     const interval = setInterval(() => {
       setContadorEntregas(prev => prev + Math.floor(Math.random() * 2) + 1);
@@ -84,10 +88,16 @@ export default function PremiumHomeScreen({ navigation }) {
     }
   }, [driver?.online]);
 
+  const loadCouponData = async () => {
+    const data = await CouponSystem.getTodayCoupon();
+    setCouponData(data);
+  };
+
   const generateCouponOnOnline = async () => {
     const result = await CouponSystem.generateCouponOnOnline(driver?.id);
     if (result.generated) {
       setCouponMessage(result.message);
+      setCouponData(result.coupon);
       Alert.alert(
         '🍱 Marmitex Garantido!',
         `${result.message}\n\n📌 Código: ${result.coupon.code}\n⏰ Válido até 13h\n📍 Dellys Lanches`,
@@ -182,6 +192,14 @@ export default function PremiumHomeScreen({ navigation }) {
     Linking.openURL(`tel:${activeDelivery.clientPhone}`);
   }
 
+  // Verificar se o cupom é válido
+  const isCouponValid = () => {
+    if (!couponData) return false;
+    const now = new Date();
+    const expires = new Date(couponData.expiresAt);
+    return now < expires && couponData.status !== 'used';
+  };
+
   const styles = getStyles(darkMode);
 
   return (
@@ -235,8 +253,6 @@ export default function PremiumHomeScreen({ navigation }) {
               <SOSButton darkMode={darkMode} location={location} />
             </View>
           </View>
-
-          <CouponCard darkMode={darkMode} />
 
           <View style={[styles.statusCard, darkMode && styles.statusCardDark]}>
             <View style={styles.statusCardHeader}>
@@ -314,6 +330,26 @@ export default function PremiumHomeScreen({ navigation }) {
         </ScrollView>
       </Animated.View>
 
+      {/* BOTÃO DO CUPOM NO RODAPÉ - SOBREPOSTO AO RODAPÉ EXISTENTE */}
+      {isCouponValid() && (
+        <TouchableOpacity 
+          style={styles.couponFooterButton}
+          onPress={() => setCouponModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.couponFooterBadge, darkMode && styles.couponFooterBadgeDark]}>
+            <Text style={styles.couponFooterEmoji}>🍱</Text>
+            <View style={styles.couponFooterInfo}>
+              <Text style={[styles.couponFooterTitle, darkMode && styles.textLight]}>Marmitex R$ 10,00</Text>
+              <Text style={[styles.couponFooterTime, darkMode && styles.textSecondary]}>
+                {CouponSystem.getTimeUntilExpiration()}
+              </Text>
+            </View>
+            <View style={styles.couponFooterIndicator} />
+          </View>
+        </TouchableOpacity>
+      )}
+
       <CallAlert 
         visible={callVisible}
         delivery={currentDelivery}
@@ -346,6 +382,74 @@ export default function PremiumHomeScreen({ navigation }) {
             <Pressable style={styles.modalButton} onPress={() => setModalDetalhes(false)}>
               <Text style={styles.modalButtonText}>Fechar</Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL DO CUPOM */}
+      <Modal visible={couponModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, darkMode && styles.modalBoxDark]}>
+            <Pressable style={styles.modalClose} onPress={() => setCouponModalVisible(false)}>
+              <Text style={[styles.modalCloseText, darkMode && styles.textLight]}>✕</Text>
+            </Pressable>
+            <Text style={[styles.modalTitle, darkMode && styles.textLight]}>🍱 Meu Cupom</Text>
+            
+            {couponData && isCouponValid() ? (
+              <>
+                <View style={styles.modalCouponCard}>
+                  <Text style={styles.modalCouponValue}>R$ 10,00</Text>
+                  <Text style={[styles.modalCouponSub, darkMode && styles.textSecondary]}>
+                    Marmitex no Dellys Lanches
+                  </Text>
+                  <View style={styles.modalCouponCode}>
+                    <Text style={styles.modalCouponCodeText}>{couponData.code}</Text>
+                  </View>
+                  <Text style={[styles.modalCouponTime, darkMode && styles.textSecondary]}>
+                    {CouponSystem.getTimeUntilExpiration()}
+                  </Text>
+                </View>
+                
+                <TouchableOpacity style={styles.modalButton} onPress={async () => {
+                  const result = await CouponSystem.useCoupon(couponData.code);
+                  Alert.alert(result.success ? '✅ Sucesso!' : '❌ Erro', result.message);
+                  if (result.success) {
+                    setCouponData(null);
+                    setCouponModalVisible(false);
+                  }
+                }}>
+                  <Text style={styles.modalButtonText}>🍽️ USAR CUPOM</Text>
+                </TouchableOpacity>
+                
+                <Text style={[styles.modalInfo, darkMode && styles.textSecondary]}>
+                  ⏰ Válido apenas hoje até às 13:00
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.modalEmpty, darkMode && styles.textLight]}>
+                  📭 Nenhum cupom disponível hoje
+                </Text>
+                <Text style={[styles.modalEmptySub, darkMode && styles.textSecondary]}>
+                  Fique online antes das 13h para garantir seu marmitex!
+                </Text>
+                <TouchableOpacity 
+                  style={[styles.modalButton, { backgroundColor: '#ff6f00' }]} 
+                  onPress={async () => {
+                    const result = await CouponSystem.generateCouponOnOnline(driver?.id);
+                    if (result.generated) {
+                      setCouponData(result.coupon);
+                      Alert.alert('🎉', 'Cupom gerado com sucesso!');
+                      setCouponModalVisible(false);
+                    } else {
+                      Alert.alert('⏰', result.message);
+                    }
+                  }}
+                >
+                  <Text style={styles.modalButtonText}>🔄 GERAR CUPOM</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -430,6 +534,66 @@ function getStyles(darkMode) {
     modalStatLabel: { fontSize: 12, color: textSecondary, marginTop: 2 },
     modalButton: { backgroundColor: red, padding: 14, borderRadius: 30, alignItems: 'center' },
     modalButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    modalInfo: { fontSize: 12, color: textSecondary, textAlign: 'center', marginTop: 12 },
+    modalEmpty: { fontSize: 18, fontWeight: '600', color: textPrimary, textAlign: 'center', marginBottom: 8 },
+    modalEmptySub: { fontSize: 14, color: textSecondary, textAlign: 'center', marginBottom: 16 },
+    modalCouponCard: { backgroundColor: '#fff3e0', borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#ff6f00', marginBottom: 16 },
+    modalCouponValue: { fontSize: 32, fontWeight: '800', color: '#e65100' },
+    modalCouponSub: { fontSize: 14, color: textSecondary, marginTop: 4 },
+    modalCouponCode: { backgroundColor: '#fff8e1', borderRadius: 8, padding: 8, marginTop: 12, borderWidth: 1, borderColor: '#ffcc02' },
+    modalCouponCodeText: { fontSize: 16, fontWeight: '800', color: '#e65100', letterSpacing: 1 },
+    modalCouponTime: { fontSize: 14, color: textSecondary, marginTop: 8 },
+
+    // BOTÃO DO CUPOM NO RODAPÉ
+    couponFooterButton: {
+      position: 'absolute',
+      bottom: 70,
+      left: 12,
+      right: 12,
+      zIndex: 100,
+    },
+    couponFooterBadge: {
+      backgroundColor: '#fff3e0',
+      borderRadius: 16,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: '#ff6f00',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 5,
+    },
+    couponFooterBadgeDark: {
+      backgroundColor: '#2a1f0a',
+      borderColor: '#ff8f00',
+    },
+    couponFooterEmoji: {
+      fontSize: 24,
+      marginRight: 10,
+    },
+    couponFooterInfo: {
+      flex: 1,
+    },
+    couponFooterTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: '#e65100',
+    },
+    couponFooterTime: {
+      fontSize: 11,
+      color: textSecondary,
+    },
+    couponFooterIndicator: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: '#4caf50',
+      marginLeft: 8,
+    },
     textLight: { color: textPrimary },
     textSecondary: { color: textSecondary },
   });
