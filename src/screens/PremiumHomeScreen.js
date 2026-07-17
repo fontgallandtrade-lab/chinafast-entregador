@@ -24,6 +24,7 @@ import SmartButton from '../components/SmartButton';
 import SOSButton from '../components/SOSButton';
 import DailyProgress from '../components/DailyProgress';
 import CouponCard from '../components/CouponCard';
+import { CouponSystem } from '../utils/CouponSystem';
 
 import { useAuth } from '../context/AuthContext';
 import { useDeliveries } from '../context/DeliveryContext';
@@ -46,6 +47,8 @@ export default function PremiumHomeScreen({ navigation }) {
   const [modalDetalhes, setModalDetalhes] = useState(false);
   const [callVisible, setCallVisible] = useState(false);
   const [currentDelivery, setCurrentDelivery] = useState(null);
+  const [smartStatus, setSmartStatus] = useState('offline');
+  const [couponMessage, setCouponMessage] = useState(null);
   
   const fadeAnim = useState(new Animated.Value(0))[0];
   const { location, permissionGranted } = useLocationTracking(
@@ -74,10 +77,24 @@ export default function PremiumHomeScreen({ navigation }) {
 
   useEffect(() => {
     if (driver?.online) {
+      setSmartStatus('online');
       generateCouponOnOnline();
     } else {
+      setSmartStatus('offline');
     }
   }, [driver?.online]);
+
+  const generateCouponOnOnline = async () => {
+    const result = await CouponSystem.generateCouponOnOnline(driver?.id);
+    if (result.generated) {
+      setCouponMessage(result.message);
+      Alert.alert(
+        '🍱 Marmitex Garantido!',
+        `${result.message}\n\n📌 Código: ${result.coupon.code}\n⏰ Válido até 13h\n📍 Dellys Lanches`,
+        [{ text: '👍 Que legal!' }]
+      );
+    }
+  };
 
   const loadTheme = async () => {
     try {
@@ -180,7 +197,6 @@ export default function PremiumHomeScreen({ navigation }) {
 
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* MAPA */}
           <View style={styles.mapArea}>
             <PremiumMap location={location} delivery={activeDelivery || availableDelivery} darkMode={darkMode} />
             
@@ -209,7 +225,7 @@ export default function PremiumHomeScreen({ navigation }) {
               </View>
             </View>
 
-            {/* SMART BUTTON */}
+            <View style={styles.smartButtonContainer}>
               <SmartButton 
                 status={smartStatus}
                 onPress={toggleOnline}
@@ -220,7 +236,8 @@ export default function PremiumHomeScreen({ navigation }) {
             </View>
           </View>
 
-          {/* STATUS CARD */}
+          <CouponCard darkMode={darkMode} />
+
           <View style={[styles.statusCard, darkMode && styles.statusCardDark]}>
             <View style={styles.statusCardHeader}>
               <View style={[styles.statusDotIndicator, driver?.online ? styles.greenDot : styles.redDot]} />
@@ -231,11 +248,10 @@ export default function PremiumHomeScreen({ navigation }) {
             <Text style={[styles.statusCardSub, darkMode && styles.textSecondary]}>
               {driver?.online 
                 ? 'Aguardando uma nova corrida próxima...' 
-                : 'Ative o status para receber novas corridas'}
+                : 'Ative o status para receber novas corridas e garantir seu marmitex!'}
             </Text>
           </View>
 
-          {/* DAILY PROGRESS */}
           <DailyProgress 
             todayDeliveries={contadorEntregas % 15}
             goal={15}
@@ -243,7 +259,6 @@ export default function PremiumHomeScreen({ navigation }) {
             darkMode={darkMode}
           />
 
-          {/* CONTADOR */}
           <Pressable style={[styles.contadorCard, darkMode && styles.contadorCardDark]} onPress={() => setModalDetalhes(true)}>
             <View style={styles.contadorContent}>
               <Text style={styles.contadorNumber}>{contadorEntregas}</Text>
@@ -252,7 +267,6 @@ export default function PremiumHomeScreen({ navigation }) {
             <Text style={[styles.contadorDetail, darkMode && styles.textSecondary]}>Toque para ver detalhes →</Text>
           </Pressable>
 
-          {/* STATS GRID */}
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, darkMode && styles.statCardDark]}>
               <Text style={styles.statEmoji}>⭐</Text>
@@ -271,7 +285,6 @@ export default function PremiumHomeScreen({ navigation }) {
             </View>
           </View>
 
-          {/* AÇÕES RÁPIDAS */}
           <View style={styles.quickActions}>
             <Pressable style={[styles.quickAction, darkMode && styles.quickActionDark]} onPress={handleCallClient}>
               <Text style={styles.quickActionEmoji}>📞</Text>
@@ -287,7 +300,6 @@ export default function PremiumHomeScreen({ navigation }) {
             </Pressable>
           </View>
 
-          {/* EMPTY STATE */}
           {!availableDelivery && !activeDelivery && (
             <View style={[styles.emptyState, darkMode && styles.emptyStateDark]}>
               <Text style={[styles.emptyStateIcon, darkMode && styles.textLight]}>📭</Text>
@@ -302,7 +314,6 @@ export default function PremiumHomeScreen({ navigation }) {
         </ScrollView>
       </Animated.View>
 
-      {/* CALL ALERT MODAL */}
       <CallAlert 
         visible={callVisible}
         delivery={currentDelivery}
@@ -311,7 +322,6 @@ export default function PremiumHomeScreen({ navigation }) {
         darkMode={darkMode}
       />
 
-      {/* MODAL DETALHES */}
       <Modal visible={modalDetalhes} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, darkMode && styles.modalBoxDark]}>
@@ -379,6 +389,7 @@ function getStyles(darkMode) {
     statusDivider: { width: 1, backgroundColor: '#444' },
     successText: { color: '#4caf50' },
     dangerText: { color: '#f44336' },
+    smartButtonContainer: { position: 'absolute', bottom: 55, left: 12, right: 12, flexDirection: 'row', gap: 8, alignItems: 'center' },
     statusCard: { backgroundColor: bgCard, marginHorizontal: 12, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: borderColor },
     statusCardDark: { backgroundColor: bgSecondary },
     statusCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
