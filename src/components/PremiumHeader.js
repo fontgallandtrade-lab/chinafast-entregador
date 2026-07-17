@@ -1,210 +1,76 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
-
-import colors from '../theme/colors';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function PremiumHeader({
-  driverName = 'Entregador',
-  online = true,
-  earningsToday = 'R$ 0,00',
+  driverName,
+  online,
+  earningsToday,
   onMenu,
+  onThemeToggle,
+  darkMode,
 }) {
+  const styles = getStyles(darkMode);
+
   return (
-    <View style={styles.container}>
-
-      <View style={styles.topRow}>
-
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={onMenu}
-        >
-          <Text style={styles.menuIcon}>☰</Text>
-        </TouchableOpacity>
-
-        <View style={styles.logoArea}>
-          <Text style={styles.logo}>
-            ChinaFast
+    <View style={[styles.container, darkMode && styles.containerDark]}>
+      <Pressable onPress={onMenu} style={styles.menuButton}>
+        <Text style={[styles.menuIcon, darkMode && styles.textLight]}>☰</Text>
+      </Pressable>
+      <View style={styles.center}>
+        <Text style={[styles.name, darkMode && styles.textLight]}>{driverName}</Text>
+        <View style={styles.statusRow}>
+          <View style={[styles.statusDot, online ? styles.greenDot : styles.redDot]} />
+          <Text style={[styles.statusText, darkMode && styles.textSecondary]}>
+            {online ? 'Online' : 'Offline'}
           </Text>
         </View>
-
-        <View style={styles.statusArea}>
-          <View
-            style={[
-              styles.dot,
-              {
-                backgroundColor: online
-                  ? colors.success
-                  : colors.danger,
-              },
-            ]}
-          />
-
-          <Text style={styles.status}>
-            {online ? 'ONLINE' : 'OFFLINE'}
+      </View>
+      <View style={styles.rightActions}>
+        <Pressable onPress={onThemeToggle} style={styles.themeButton}>
+          <Text style={[styles.themeIcon, darkMode && styles.textLight]}>
+            {darkMode ? '☀️' : '🌙'}
           </Text>
-        </View>
-
+        </Pressable>
+        <Text style={[styles.earnings, darkMode && styles.textLight]}>
+          {earningsToday}
+        </Text>
       </View>
-
-      <View style={styles.info}>
-
-        <Text style={styles.hello}>
-          Boa viagem,
-        </Text>
-
-        <Text style={styles.driver}>
-          {driverName}
-        </Text>
-
-        <Text style={styles.money}>
-          Hoje: {earningsToday}
-        </Text>
-
-      </View>
-
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-
-  container:{
-
-    backgroundColor:colors.surface,
-
-    paddingTop:50,
-
-    paddingHorizontal:20,
-
-    paddingBottom:20,
-
-    borderBottomLeftRadius:25,
-
-    borderBottomRightRadius:25
-
-  },
-
-  topRow:{
-
-    flexDirection:'row',
-
-    alignItems:'center',
-
-    justifyContent:'space-between'
-
-  },
-
-  menuButton:{
-
-    width:45,
-
-    height:45,
-
-    borderRadius:22,
-
-    backgroundColor:colors.background,
-
-    justifyContent:'center',
-
-    alignItems:'center'
-
-  },
-
-  menuIcon:{
-
-    color:'#fff',
-
-    fontSize:22
-
-  },
-
-  logoArea:{
-
-    flex:1,
-
-    alignItems:'center'
-
-  },
-
-  logo:{
-
-    color:'#fff',
-
-    fontSize:24,
-
-    fontWeight:'bold'
-
-  },
-
-  statusArea:{
-
-    flexDirection:'row',
-
-    alignItems:'center'
-
-  },
-
-  dot:{
-
-    width:10,
-
-    height:10,
-
-    borderRadius:5,
-
-    marginRight:6
-
-  },
-
-  status:{
-
-    color:'#fff',
-
-    fontWeight:'bold'
-
-  },
-
-  info:{
-
-    marginTop:20
-
-  },
-
-  hello:{
-
-    color:colors.textSecondary,
-
-    fontSize:14
-
-  },
-
-  driver:{
-
-    color:'#fff',
-
-    fontSize:28,
-
-    fontWeight:'bold',
-
-    marginTop:5
-
-  },
-
-  money:{
-
-    color:colors.success,
-
-    fontSize:18,
-
-    marginTop:8,
-
-    fontWeight:'bold'
-
-  }
-
-});
+function getStyles(darkMode) {
+  const bgSecondary = darkMode ? '#1a2740' : '#ffffff';
+  const textPrimary = darkMode ? '#e8edf5' : '#1e2b3a';
+  const textSecondary = darkMode ? '#b0c4db' : '#4a5a6e';
+  const borderColor = darkMode ? '#2a3a5a' : '#eef4fa';
+
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      backgroundColor: bgSecondary,
+      borderBottomWidth: 1,
+      borderBottomColor: borderColor,
+    },
+    containerDark: { backgroundColor: '#1a2740' },
+    menuButton: { padding: 4 },
+    menuIcon: { fontSize: 22, color: textPrimary },
+    center: { alignItems: 'center' },
+    name: { fontSize: 15, fontWeight: '700', color: textPrimary },
+    statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
+    statusDot: { width: 7, height: 7, borderRadius: 3.5 },
+    greenDot: { backgroundColor: '#4caf50' },
+    redDot: { backgroundColor: '#f44336' },
+    statusText: { fontSize: 11, color: textSecondary, fontWeight: '500' },
+    rightActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    themeButton: { padding: 4 },
+    themeIcon: { fontSize: 18, color: textPrimary },
+    earnings: { fontSize: 13, fontWeight: '700', color: textPrimary },
+    textLight: { color: textPrimary },
+    textSecondary: { color: textSecondary },
+  });
+}

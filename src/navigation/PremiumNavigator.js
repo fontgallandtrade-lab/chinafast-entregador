@@ -3,6 +3,10 @@ import {
 } from '@react-navigation/bottom-tabs';
 
 import {
+  createNativeStackNavigator,
+} from '@react-navigation/native-stack';
+
+import {
   StyleSheet,
   Text,
 } from 'react-native';
@@ -17,9 +21,20 @@ import WalletScreen from '../screens/WalletScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
+import VehicleScreen from '../screens/VehicleScreen';
+import PixKeyScreen from '../screens/PixKeyScreen';
+import DocumentsScreen from '../screens/DocumentsScreen';
+import OperationsScreen from '../screens/OperationsScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import HelpScreen from '../screens/HelpScreen';
+
 import colors from '../theme/colors';
 
-const Tab = createBottomTabNavigator();
+const Tab =
+  createBottomTabNavigator();
+
+const Stack =
+  createNativeStackNavigator();
 
 function TabIcon({
   icon,
@@ -29,7 +44,8 @@ function TabIcon({
     <Text
       style={[
         styles.icon,
-        focused && styles.iconActive,
+        focused &&
+          styles.iconActive,
       ]}
     >
       {icon}
@@ -37,13 +53,15 @@ function TabIcon({
   );
 }
 
-export default function PremiumNavigator() {
-  const insets = useSafeAreaInsets();
+function MainTabs() {
+  const insets =
+    useSafeAreaInsets();
 
-  const bottomSpace = Math.max(
-    insets.bottom,
-    10
-  );
+  const bottomSpace =
+    Math.max(
+      insets.bottom,
+      10
+    );
 
   return (
     <Tab.Navigator
@@ -65,7 +83,8 @@ export default function PremiumNavigator() {
           styles.tabItem,
 
         tabBarStyle: {
-          height: 64 + bottomSpace,
+          height:
+            64 + bottomSpace,
 
           paddingTop: 7,
 
@@ -81,26 +100,15 @@ export default function PremiumNavigator() {
             colors.border,
 
           elevation: 18,
-
-          shadowColor: '#000000',
-
-          shadowOffset: {
-            width: 0,
-            height: -3,
-          },
-
-          shadowOpacity: 0.2,
-
-          shadowRadius: 7,
         },
       }}
     >
       <Tab.Screen
         name="Início"
-        component={PremiumHomeScreen}
+        component={
+          PremiumHomeScreen
+        }
         options={{
-          tabBarLabel: 'Início',
-
           tabBarIcon: ({
             focused,
           }) => (
@@ -114,10 +122,10 @@ export default function PremiumNavigator() {
 
       <Tab.Screen
         name="Corrida"
-        component={DeliveryScreen}
+        component={
+          DeliveryScreen
+        }
         options={{
-          tabBarLabel: 'Corrida',
-
           tabBarIcon: ({
             focused,
           }) => (
@@ -131,10 +139,10 @@ export default function PremiumNavigator() {
 
       <Tab.Screen
         name="Carteira"
-        component={WalletScreen}
+        component={
+          WalletScreen
+        }
         options={{
-          tabBarLabel: 'Carteira',
-
           tabBarIcon: ({
             focused,
           }) => (
@@ -148,10 +156,10 @@ export default function PremiumNavigator() {
 
       <Tab.Screen
         name="Histórico"
-        component={HistoryScreen}
+        component={
+          HistoryScreen
+        }
         options={{
-          tabBarLabel: 'Histórico',
-
           tabBarIcon: ({
             focused,
           }) => (
@@ -165,34 +173,87 @@ export default function PremiumNavigator() {
 
       <Tab.Screen
         name="Perfil"
-        component={ProfileScreen}
+        component={
+          ProfileScreen
+        }
         options={{
-          tabBarButton: () => null,
+          tabBarButton:
+            () => null,
         }}
       />
     </Tab.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  tabItem: {
-    paddingTop: 1,
-  },
+export default function PremiumNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation:
+          'slide_from_right',
+      }}
+    >
+      <Stack.Screen
+        name="MainTabs"
+        component={MainTabs}
+      />
 
-  label: {
-    fontSize: 11,
-    fontWeight: '800',
-    marginTop: 1,
-  },
+      <Stack.Screen
+        name="Veículo"
+        component={VehicleScreen}
+      />
 
-  icon: {
-    color: colors.textSecondary,
-    fontSize: 20,
-    lineHeight: 24,
-    fontWeight: '900',
-  },
+      <Stack.Screen
+        name="Chave Pix"
+        component={PixKeyScreen}
+      />
 
-  iconActive: {
-    color: colors.primary,
-  },
-});
+      <Stack.Screen
+        name="Documentos"
+        component={DocumentsScreen}
+      />
+
+      <Stack.Screen
+        name="Central Operacional"
+        component={OperationsScreen}
+      />
+
+      <Stack.Screen
+        name="Configurações"
+        component={SettingsScreen}
+      />
+
+      <Stack.Screen
+        name="Ajuda"
+        component={HelpScreen}
+      />
+    </Stack.Navigator>
+  );
+}
+
+const styles =
+  StyleSheet.create({
+    tabItem: {
+      paddingTop: 1,
+    },
+
+    label: {
+      fontSize: 11,
+      fontWeight: '800',
+      marginTop: 1,
+    },
+
+    icon: {
+      color:
+        colors.textSecondary,
+      fontSize: 20,
+      lineHeight: 24,
+      fontWeight: '900',
+    },
+
+    iconActive: {
+      color:
+        colors.primary,
+    },
+  });
