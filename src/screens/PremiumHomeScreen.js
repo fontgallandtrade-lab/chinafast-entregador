@@ -10,6 +10,8 @@ import {
   Modal,
   Animated,
   Dimensions,
+  Vibration,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +19,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import PremiumHeader from '../components/PremiumHeader';
 import PremiumMap from '../components/PremiumMap';
 import SideMenu from '../components/SideMenu';
+import CallAlert from '../components/CallAlert';
+import SmartButton from '../components/SmartButton';
+import SOSButton from '../components/SOSButton';
+import DailyProgress from '../components/DailyProgress';
 
 import { useAuth } from '../context/AuthContext';
 import { useDeliveries } from '../context/DeliveryContext';
@@ -37,9 +43,11 @@ export default function PremiumHomeScreen({ navigation }) {
   const [darkMode, setDarkMode] = useState(false);
   const [contadorEntregas, setContadorEntregas] = useState(269);
   const [modalDetalhes, setModalDetalhes] = useState(false);
+  const [callVisible, setCallVisible] = useState(false);
+  const [currentDelivery, setCurrentDelivery] = useState(null);
+  const [smartStatus, setSmartStatus] = useState('offline');
   
   const fadeAnim = useState(new Animated.Value(0))[0];
-
   const { location, permissionGranted } = useLocationTracking(
     driver?.id,
     Boolean(driver?.online),
@@ -49,11 +57,28 @@ export default function PremiumHomeScreen({ navigation }) {
   useEffect(() => {
     loadTheme();
     animateEntrance();
+    
     const interval = setInterval(() => {
       setContadorEntregas(prev => prev + Math.floor(Math.random() * 2) + 1);
     }, 10000);
+    
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (availableDelivery && !callVisible && !activeDelivery) {
+      setCurrentDelivery(availableDelivery);
+      setCallVisible(true);
+    }
+  }, [availableDelivery]);
+
+  useEffect(() => {
+    if (driver?.online) {
+      setSmartStatus('online');
+    } else {
+      setSmartStatus('offline');
+    }
+  }, [driver?.online]);
 
   const loadTheme = async () => {
     try {
@@ -96,10 +121,12 @@ export default function PremiumHomeScreen({ navigation }) {
   }
 
   async function handleAccept() {
-    if (!availableDelivery?.id) return;
+    if (!currentDelivery?.id) return;
     setAccepting(true);
     try {
-      await acceptDelivery(availableDelivery.id);
+      await acceptDelivery(currentDelivery.id);
+      setCallVisible(false);
+      Vibration.vibrate(100);
       Alert.alert('✅ Corrida aceita!', 'A entrega foi reservada para você.');
       navigation.navigate('Corrida');
     } catch (error) {
@@ -110,13 +137,10 @@ export default function PremiumHomeScreen({ navigation }) {
   }
 
   function handleReject() {
-    if (!availableDelivery?.id) return;
-    Alert.alert('Recusar corrida', 'Esta corrida será ocultada.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Recusar', style: 'destructive', onPress: () => {
-        setIgnoredDeliveryIds((current) => [...current, Number(availableDelivery.id)]);
-      }},
-    ]);
+    if (!currentDelivery?.id) return;
+    setCallVisible(false);
+    setIgnoredDeliveryIds((current) => [...current, Number(currentDelivery.id)]);
+    Vibration.vibrate(200);
   }
 
   function handleMenuNavigation(key) {
@@ -134,6 +158,14 @@ export default function PremiumHomeScreen({ navigation }) {
     if (routes[key]) navigation.navigate(routes[key]);
   }
 
+  function handleCallClient() {
+    if (!activeDelivery?.clientPhone) {
+      Alert.alert('📞', 'Número do cliente não disponível.');
+      return;
+    }
+    Linking.openURL(`tel:${activeDelivery.clientPhone}`);
+  }
+
   const styles = getStyles(darkMode);
 
   return (
@@ -149,6 +181,7 @@ export default function PremiumHomeScreen({ navigation }) {
 
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <ScrollView showsVerticalScrollIndicator={false}>
+          {/* MAPA */}
           <View style={styles.mapArea}>
             <PremiumMap location={location} delivery={activeDelivery || availableDelivery} darkMode={darkMode} />
             
@@ -177,43 +210,19 @@ export default function PremiumHomeScreen({ navigation }) {
               </View>
             </View>
 
-            <Pressable
-              style={[styles.onlineButton, driver?.online ? styles.onlineButtonActive : styles.onlineButtonInactive]}
-              disabled={changingOnline}
-              onPress={toggleOnline}
-            >
-              {changingOnline ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <>
-                  <View style={[styles.onlineDot, driver?.online ? styles.greenDot : styles.redDot]} />
-                  <Text style={styles.onlineButtonText}>{driver?.online ? 'ONLINE' : 'FICAR ONLINE'}</Text>
-                </>
-              )}
-            </Pressable>
-
-            {availableDelivery && (
-              <View style={styles.callOverlay}>
-                <View style={[styles.callCard, darkMode && styles.callCardDark]}>
-                  <Text style={styles.callTitle}>📱 Nova corrida disponível!</Text>
-                  <Text style={styles.callSub}>
-                    {availableDelivery.distance || '~2.5 km'} de distância
-                  </Text>
-                  <View style={styles.callActions}>
-                    <Pressable style={[styles.callButton, styles.callButtonAccept]} onPress={handleAccept} disabled={accepting}>
-                      <Text style={styles.callButtonText}>
-                        {accepting ? 'Aceitando...' : '✅ Aceitar'}
-                      </Text>
-                    </Pressable>
-                    <Pressable style={[styles.callButton, styles.callButtonReject]} onPress={handleReject}>
-                      <Text style={styles.callButtonText}>❌ Recusar</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            )}
+            {/* SMART BUTTON */}
+            <View style={styles.smartButtonContainer}>
+              <SmartButton 
+                status={smartStatus}
+                onPress={toggleOnline}
+                darkMode={darkMode}
+                disabled={changingOnline}
+              />
+              <SOSButton darkMode={darkMode} location={location} />
+            </View>
           </View>
 
+          {/* STATUS CARD */}
           <View style={[styles.statusCard, darkMode && styles.statusCardDark]}>
             <View style={styles.statusCardHeader}>
               <View style={[styles.statusDotIndicator, driver?.online ? styles.greenDot : styles.redDot]} />
@@ -228,6 +237,15 @@ export default function PremiumHomeScreen({ navigation }) {
             </Text>
           </View>
 
+          {/* DAILY PROGRESS */}
+          <DailyProgress 
+            todayDeliveries={contadorEntregas % 15}
+            goal={15}
+            earnings={contadorEntregas * 8.5}
+            darkMode={darkMode}
+          />
+
+          {/* CONTADOR */}
           <Pressable style={[styles.contadorCard, darkMode && styles.contadorCardDark]} onPress={() => setModalDetalhes(true)}>
             <View style={styles.contadorContent}>
               <Text style={styles.contadorNumber}>{contadorEntregas}</Text>
@@ -236,6 +254,7 @@ export default function PremiumHomeScreen({ navigation }) {
             <Text style={[styles.contadorDetail, darkMode && styles.textSecondary]}>Toque para ver detalhes →</Text>
           </Pressable>
 
+          {/* STATS GRID */}
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, darkMode && styles.statCardDark]}>
               <Text style={styles.statEmoji}>⭐</Text>
@@ -254,12 +273,29 @@ export default function PremiumHomeScreen({ navigation }) {
             </View>
           </View>
 
+          {/* AÇÕES RÁPIDAS */}
+          <View style={styles.quickActions}>
+            <Pressable style={[styles.quickAction, darkMode && styles.quickActionDark]} onPress={handleCallClient}>
+              <Text style={styles.quickActionEmoji}>📞</Text>
+              <Text style={[styles.quickActionText, darkMode && styles.textLight]}>Cliente</Text>
+            </Pressable>
+            <Pressable style={[styles.quickAction, darkMode && styles.quickActionDark]} onPress={() => Alert.alert('📍', 'Rota sendo calculada...')}>
+              <Text style={styles.quickActionEmoji}>📍</Text>
+              <Text style={[styles.quickActionText, darkMode && styles.textLight]}>Rota</Text>
+            </Pressable>
+            <Pressable style={[styles.quickAction, darkMode && styles.quickActionDark]} onPress={() => navigation.navigate('Histórico')}>
+              <Text style={styles.quickActionEmoji}>📋</Text>
+              <Text style={[styles.quickActionText, darkMode && styles.textLight]}>Histórico</Text>
+            </Pressable>
+          </View>
+
+          {/* EMPTY STATE */}
           {!availableDelivery && !activeDelivery && (
             <View style={[styles.emptyState, darkMode && styles.emptyStateDark]}>
               <Text style={[styles.emptyStateIcon, darkMode && styles.textLight]}>📭</Text>
               <Text style={[styles.emptyStateTitle, darkMode && styles.textLight]}>Nenhuma corrida agora</Text>
               <Text style={[styles.emptyStateSub, darkMode && styles.textSecondary]}>
-                Quando uma entrega surgir, ela aparecerá automaticamente neste painel.
+                Quando uma entrega surgir, ela aparecerá automaticamente.
               </Text>
             </View>
           )}
@@ -268,6 +304,16 @@ export default function PremiumHomeScreen({ navigation }) {
         </ScrollView>
       </Animated.View>
 
+      {/* CALL ALERT MODAL */}
+      <CallAlert 
+        visible={callVisible}
+        delivery={currentDelivery}
+        onAccept={handleAccept}
+        onReject={handleReject}
+        darkMode={darkMode}
+      />
+
+      {/* MODAL DETALHES */}
       <Modal visible={modalDetalhes} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, darkMode && styles.modalBoxDark]}>
@@ -335,23 +381,7 @@ function getStyles(darkMode) {
     statusDivider: { width: 1, backgroundColor: '#444' },
     successText: { color: '#4caf50' },
     dangerText: { color: '#f44336' },
-    onlineButton: { position: 'absolute', top: 10, right: 10, paddingVertical: 6, paddingHorizontal: 14, borderRadius: 30, flexDirection: 'row', alignItems: 'center', gap: 6 },
-    onlineButtonActive: { backgroundColor: '#4caf50' },
-    onlineButtonInactive: { backgroundColor: '#f44336' },
-    onlineDot: { width: 8, height: 8, borderRadius: 4 },
-    greenDot: { backgroundColor: '#ffffff' },
-    redDot: { backgroundColor: '#ffffff' },
-    onlineButtonText: { color: '#fff', fontWeight: '700', fontSize: 11 },
-    callOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-    callCard: { backgroundColor: '#fff', borderRadius: 20, padding: 24, width: width * 0.85, alignItems: 'center' },
-    callCardDark: { backgroundColor: '#1a2740' },
-    callTitle: { fontSize: 20, fontWeight: '700', color: textPrimary, marginBottom: 4 },
-    callSub: { fontSize: 14, color: textSecondary, marginBottom: 16 },
-    callActions: { flexDirection: 'row', gap: 12 },
-    callButton: { paddingVertical: 10, paddingHorizontal: 24, borderRadius: 30, minWidth: 100, alignItems: 'center' },
-    callButtonAccept: { backgroundColor: '#4caf50' },
-    callButtonReject: { backgroundColor: '#f44336' },
-    callButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    smartButtonContainer: { position: 'absolute', bottom: 55, left: 12, right: 12, flexDirection: 'row', gap: 8, alignItems: 'center' },
     statusCard: { backgroundColor: bgCard, marginHorizontal: 12, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: borderColor },
     statusCardDark: { backgroundColor: bgSecondary },
     statusCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -370,6 +400,11 @@ function getStyles(darkMode) {
     statEmoji: { fontSize: 22, marginBottom: 2 },
     statNumber: { fontSize: 18, fontWeight: '700', color: textPrimary },
     statLabel: { fontSize: 11, color: textSecondary },
+    quickActions: { flexDirection: 'row', marginHorizontal: 12, gap: 8, marginVertical: 8 },
+    quickAction: { flex: 1, backgroundColor: bgCard, padding: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: borderColor },
+    quickActionDark: { backgroundColor: bgSecondary },
+    quickActionEmoji: { fontSize: 24, marginBottom: 2 },
+    quickActionText: { fontSize: 12, fontWeight: '600', color: textPrimary },
     emptyState: { backgroundColor: bgCard, margin: 12, padding: 20, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: borderColor, borderStyle: 'dashed' },
     emptyStateDark: { backgroundColor: bgSecondary },
     emptyStateIcon: { fontSize: 36, marginBottom: 8 },
