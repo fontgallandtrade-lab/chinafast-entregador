@@ -1,46 +1,16 @@
-import { Audio } from 'expo-av';
-import { useState } from 'react';
-
 export function useSound() {
-  const [sound, setSound] = useState(null);
-
   const playNewDeliverySound = async () => {
-    try {
-      // Usar som padrão do sistema ou arquivo local
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        require('../assets/sounds/new-delivery.mp3'),
-        { shouldPlay: true }
-      );
-      setSound(newSound);
-      await newSound.playAsync();
-    } catch (error) {
-      console.log('Erro ao tocar som:', error);
-      // Fallback: usar som padrão do sistema
-    }
+    console.log('Nova entrega recebida');
   };
 
   const playCouponSound = async () => {
-    try {
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        require('../assets/sounds/coupon.mp3'),
-        { shouldPlay: true }
-      );
-      setSound(newSound);
-      await newSound.playAsync();
-    } catch (error) {
-      console.log('Erro ao tocar som:', error);
-    }
+    console.log('Cupom recebido');
   };
 
-  const unloadSound = async () => {
-    if (sound) {
-      await sound.unloadAsync();
-      setSound(null);
-    }
-  };
+  const unloadSound = async () => {};
 
-  return { 
-    playNewDeliverySound, 
+  return {
+    playNewDeliverySound,
     playCouponSound,
     unloadSound,
   };
