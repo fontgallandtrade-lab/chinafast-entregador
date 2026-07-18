@@ -24,9 +24,7 @@
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-      ],
-      "minSdkVersion": 24,
-      "targetSdkVersion": 34
+      ]
     },
     "extra": {
       "eas": {
