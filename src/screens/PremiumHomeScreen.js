@@ -62,6 +62,14 @@ export default function PremiumHomeScreen({ navigation }) {
     activeDelivery?.id
   );
 
+  const availableDelivery = useMemo(
+    () =>
+      availableDeliveries.find(
+        (item) => !ignoredDeliveryIds.includes(Number(item.id))
+      ) || null,
+    [availableDeliveries, ignoredDeliveryIds]
+  );
+
   useEffect(() => {
     loadTheme();
     animateEntrance();
@@ -127,11 +135,6 @@ export default function PremiumHomeScreen({ navigation }) {
       await AsyncStorage.setItem(THEME_KEY, newTheme ? 'dark' : 'light');
     } catch (error) {}
   };
-
-  const availableDelivery = useMemo(
-    () => availableDeliveries.find((item) => !ignoredDeliveryIds.includes(Number(item.id))) || null,
-    [availableDeliveries, ignoredDeliveryIds]
-  );
 
   async function toggleOnline() {
     if (!driver?.id) return;
