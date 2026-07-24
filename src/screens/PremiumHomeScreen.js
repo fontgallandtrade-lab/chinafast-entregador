@@ -207,6 +207,97 @@ export default function PremiumHomeScreen({ navigation }) {
 
   const styles = getStyles(darkMode);
 
+  // CHINAFAST_CARD_INTERMUNICIPAL
+  // Dados tratados para impedir erro quando a API retornar números como texto.
+  const deliveryOutboundKm = Number(
+    availableDelivery?.distance_outbound_km ??
+    availableDelivery?.distanceOutboundKm ??
+    availableDelivery?.distance_km ??
+    availableDelivery?.distance ??
+    0
+  );
+
+  const deliveryReturnKm = Number(
+    availableDelivery?.distance_return_km ??
+    availableDelivery?.distanceReturnKm ??
+    deliveryOutboundKm
+  );
+
+  const deliveryTotalKm = Number(
+    availableDelivery?.distance_total_km ??
+    availableDelivery?.distanceTotalKm ??
+    deliveryOutboundKm + deliveryReturnKm
+  );
+
+  const deliveryDriverAmount = Number(
+    availableDelivery?.driver_amount ??
+    availableDelivery?.driverAmount ??
+    availableDelivery?.driver_earnings ??
+    availableDelivery?.driverEarnings ??
+    availableDelivery?.delivery_fee ??
+    availableDelivery?.price ??
+    0
+  );
+
+  const deliveryEarningsPerKm = Number(
+    availableDelivery?.earnings_per_km ??
+    availableDelivery?.earningsPerKm ??
+    (
+      deliveryTotalKm > 0
+        ? deliveryDriverAmount / deliveryTotalKm
+        : 0
+    )
+  );
+
+  const deliveryEstimatedMinutes = Number(
+    availableDelivery?.estimated_time_minutes ??
+    availableDelivery?.estimatedTimeMinutes ??
+    availableDelivery?.duration_minutes ??
+    availableDelivery?.duration ??
+    0
+  );
+
+  const deliveryPickupCity =
+    availableDelivery?.pickup_city ??
+    availableDelivery?.pickupCity ??
+    availableDelivery?.origin_city ??
+    availableDelivery?.originCity ??
+    "Cidade de retirada";
+
+  const deliveryDestinationCity =
+    availableDelivery?.delivery_city ??
+    availableDelivery?.deliveryCity ??
+    availableDelivery?.destination_city ??
+    availableDelivery?.destinationCity ??
+    "Cidade de destino";
+
+  const deliveryCompanyName =
+    availableDelivery?.company_name ??
+    availableDelivery?.companyName ??
+    availableDelivery?.company?.name ??
+    availableDelivery?.store_name ??
+    availableDelivery?.storeName ??
+    "Empresa solicitante";
+
+  const deliveryProfitability =
+    deliveryEarningsPerKm >= 1
+      ? "excellent"
+      : deliveryEarningsPerKm >= 0.7
+      ? "good"
+      : "low";
+
+  const formatMoney = (value) =>
+    Number(value || 0).toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  const formatKm = (value) =>
+    Number(value || 0).toLocaleString("pt-BR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 1,
+    });
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <PremiumHeader
@@ -272,6 +363,265 @@ export default function PremiumHomeScreen({ navigation }) {
                 : 'Ative o status para receber novas corridas e garantir seu marmitex!'}
             </Text>
           </View>
+
+          {/* CARD DE ENTREGA INTERMUNICIPAL */}
+          {availableDelivery && !activeDelivery && (
+            <View
+              style={[
+                styles.intercityCard,
+                darkMode && styles.intercityCardDark,
+              ]}
+            >
+              <View style={styles.intercityHeader}>
+                <View style={styles.intercityBadge}>
+                  <Text style={styles.intercityBadgeText}>
+                    🚚 ENTREGA ENTRE CIDADES
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.profitabilityBadge,
+                    deliveryProfitability === "excellent"
+                      ? styles.profitabilityExcellent
+                      : deliveryProfitability === "good"
+                      ? styles.profitabilityGood
+                      : styles.profitabilityLow,
+                  ]}
+                >
+                  <Text style={styles.profitabilityText}>
+                    {deliveryProfitability === "excellent"
+                      ? "🟢 EXCELENTE"
+                      : deliveryProfitability === "good"
+                      ? "🟡 BOA"
+                      : "🔴 BAIXA"}
+                  </Text>
+                </View>
+              </View>
+
+              <Text
+                style={[
+                  styles.intercityRouteTitle,
+                  darkMode && styles.textLight,
+                ]}
+              >
+                {String(deliveryPickupCity).toUpperCase()}
+              </Text>
+
+              <View style={styles.routeArrowContainer}>
+                <View style={styles.routeLine} />
+
+                <View style={styles.routeArrowCircle}>
+                  <Text style={styles.routeArrow}>➜</Text>
+                </View>
+
+                <View style={styles.routeLine} />
+              </View>
+
+              <Text
+                style={[
+                  styles.intercityRouteTitle,
+                  darkMode && styles.textLight,
+                ]}
+              >
+                {String(deliveryDestinationCity).toUpperCase()}
+              </Text>
+
+              <Text
+                style={[
+                  styles.intercityCompanyName,
+                  darkMode && styles.textSecondary,
+                ]}
+              >
+                📦 {deliveryCompanyName}
+              </Text>
+
+              <View
+                style={[
+                  styles.intercityDivider,
+                  darkMode && styles.intercityDividerDark,
+                ]}
+              />
+
+              <View style={styles.intercityInfoGrid}>
+                <View
+                  style={[
+                    styles.intercityInfoBox,
+                    darkMode && styles.intercityInfoBoxDark,
+                  ]}
+                >
+                  <Text style={styles.intercityInfoIcon}>🛣️</Text>
+
+                  <Text
+                    style={[
+                      styles.intercityInfoLabel,
+                      darkMode && styles.textSecondary,
+                    ]}
+                  >
+                    Distância de ida
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.intercityInfoValue,
+                      darkMode && styles.textLight,
+                    ]}
+                  >
+                    {formatKm(deliveryOutboundKm)} km
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.intercityInfoBox,
+                    darkMode && styles.intercityInfoBoxDark,
+                  ]}
+                >
+                  <Text style={styles.intercityInfoIcon}>🔄</Text>
+
+                  <Text
+                    style={[
+                      styles.intercityInfoLabel,
+                      darkMode && styles.textSecondary,
+                    ]}
+                  >
+                    Distância de retorno
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.intercityInfoValue,
+                      darkMode && styles.textLight,
+                    ]}
+                  >
+                    {formatKm(deliveryReturnKm)} km
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.intercityInfoBox,
+                    darkMode && styles.intercityInfoBoxDark,
+                  ]}
+                >
+                  <Text style={styles.intercityInfoIcon}>🚗</Text>
+
+                  <Text
+                    style={[
+                      styles.intercityInfoLabel,
+                      darkMode && styles.textSecondary,
+                    ]}
+                  >
+                    Total compensado
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.intercityInfoValue,
+                      darkMode && styles.textLight,
+                    ]}
+                  >
+                    {formatKm(deliveryTotalKm)} km
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.intercityInfoBox,
+                    darkMode && styles.intercityInfoBoxDark,
+                  ]}
+                >
+                  <Text style={styles.intercityInfoIcon}>⏱️</Text>
+
+                  <Text
+                    style={[
+                      styles.intercityInfoLabel,
+                      darkMode && styles.textSecondary,
+                    ]}
+                  >
+                    Tempo estimado
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.intercityInfoValue,
+                      darkMode && styles.textLight,
+                    ]}
+                  >
+                    {deliveryEstimatedMinutes > 0
+                      ? `${Math.round(deliveryEstimatedMinutes)} min`
+                      : "Calculando"}
+                  </Text>
+                </View>
+              </View>
+
+              <View
+                style={[
+                  styles.intercityPaymentArea,
+                  darkMode && styles.intercityPaymentAreaDark,
+                ]}
+              >
+                <View>
+                  <Text
+                    style={[
+                      styles.intercityPaymentLabel,
+                      darkMode && styles.textSecondary,
+                    ]}
+                  >
+                    Você recebe
+                  </Text>
+
+                  <Text style={styles.intercityPaymentValue}>
+                    R$ {formatMoney(deliveryDriverAmount)}
+                  </Text>
+                </View>
+
+                <View style={styles.intercityPerKmArea}>
+                  <Text
+                    style={[
+                      styles.intercityPerKmLabel,
+                      darkMode && styles.textSecondary,
+                    ]}
+                  >
+                    Ganho por km
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.intercityPerKmValue,
+                      darkMode && styles.textLight,
+                    ]}
+                  >
+                    R$ {formatMoney(deliveryEarningsPerKm)}/km
+                  </Text>
+                </View>
+              </View>
+
+              <Text
+                style={[
+                  styles.intercityReturnNotice,
+                  darkMode && styles.textSecondary,
+                ]}
+              >
+                ✅ O valor considera a viagem de ida e o retorno do entregador.
+              </Text>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.intercityDetailsButton,
+                  pressed && styles.intercityDetailsButtonPressed,
+                ]}
+                onPress={() => {
+                  setCurrentDelivery(availableDelivery);
+                  setCallVisible(true);
+                }}
+              >
+                <Text style={styles.intercityDetailsButtonText}>
+                  VER PEDIDO
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
           <DailyProgress 
             todayDeliveries={contadorEntregas % 15}
@@ -417,6 +767,262 @@ function getStyles(darkMode) {
     statusDotIndicator: { width: 10, height: 10, borderRadius: 5 },
     statusCardTitle: { fontSize: 15, fontWeight: '700', color: textPrimary },
     statusCardSub: { fontSize: 13, color: textSecondary, marginTop: 4, marginLeft: 18 },
+    // ESTILOS DO CARD INTERMUNICIPAL
+    intercityCard: {
+      backgroundColor: '#ffffff',
+      marginHorizontal: 12,
+      marginTop: 12,
+      marginBottom: 4,
+      borderRadius: 20,
+      padding: 18,
+      borderWidth: 2,
+      borderColor: '#f26522',
+      shadowColor: '#000000',
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.18,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+
+    intercityCardDark: {
+      backgroundColor: bgSecondary,
+      borderColor: '#f26522',
+    },
+
+    intercityHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 18,
+      gap: 8,
+    },
+
+    intercityBadge: {
+      flexShrink: 1,
+      backgroundColor: '#fff3eb',
+      borderRadius: 20,
+      paddingHorizontal: 11,
+      paddingVertical: 7,
+      borderWidth: 1,
+      borderColor: '#ffd4bd',
+    },
+
+    intercityBadgeText: {
+      color: '#d94f0b',
+      fontWeight: '900',
+      fontSize: 11,
+      letterSpacing: 0.3,
+    },
+
+    profitabilityBadge: {
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+    },
+
+    profitabilityExcellent: {
+      backgroundColor: '#15803d',
+    },
+
+    profitabilityGood: {
+      backgroundColor: '#d97706',
+    },
+
+    profitabilityLow: {
+      backgroundColor: '#b91c1c',
+    },
+
+    profitabilityText: {
+      color: '#ffffff',
+      fontSize: 10,
+      fontWeight: '900',
+    },
+
+    intercityRouteTitle: {
+      color: textPrimary,
+      fontSize: 21,
+      fontWeight: '900',
+      textAlign: 'center',
+      letterSpacing: 0.5,
+    },
+
+    routeArrowContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginVertical: 8,
+      paddingHorizontal: 35,
+    },
+
+    routeLine: {
+      flex: 1,
+      height: 2,
+      backgroundColor: '#f26522',
+    },
+
+    routeArrowCircle: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: '#f26522',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginHorizontal: 7,
+    },
+
+    routeArrow: {
+      color: '#ffffff',
+      fontSize: 19,
+      fontWeight: '900',
+    },
+
+    intercityCompanyName: {
+      color: textSecondary,
+      textAlign: 'center',
+      fontSize: 14,
+      fontWeight: '600',
+      marginTop: 13,
+    },
+
+    intercityDivider: {
+      height: 1,
+      backgroundColor: '#e5e7eb',
+      marginVertical: 16,
+    },
+
+    intercityDividerDark: {
+      backgroundColor: '#34435e',
+    },
+
+    intercityInfoGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+    },
+
+    intercityInfoBox: {
+      width: '48.5%',
+      backgroundColor: '#f7f9fc',
+      borderRadius: 14,
+      padding: 13,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: '#e8edf5',
+    },
+
+    intercityInfoBoxDark: {
+      backgroundColor: '#18243b',
+      borderColor: '#2a3a5a',
+    },
+
+    intercityInfoIcon: {
+      fontSize: 22,
+      marginBottom: 6,
+    },
+
+    intercityInfoLabel: {
+      color: textSecondary,
+      fontSize: 11,
+      lineHeight: 15,
+      minHeight: 30,
+    },
+
+    intercityInfoValue: {
+      color: textPrimary,
+      fontSize: 18,
+      fontWeight: '900',
+      marginTop: 3,
+    },
+
+    intercityPaymentArea: {
+      backgroundColor: '#ecfdf3',
+      borderRadius: 16,
+      padding: 15,
+      marginTop: 5,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#bbf7d0',
+    },
+
+    intercityPaymentAreaDark: {
+      backgroundColor: '#133523',
+      borderColor: '#1d6840',
+    },
+
+    intercityPaymentLabel: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+      marginBottom: 2,
+    },
+
+    intercityPaymentValue: {
+      color: '#15803d',
+      fontSize: 25,
+      fontWeight: '900',
+    },
+
+    intercityPerKmArea: {
+      alignItems: 'flex-end',
+      marginLeft: 10,
+    },
+
+    intercityPerKmLabel: {
+      color: textSecondary,
+      fontSize: 11,
+      marginBottom: 3,
+    },
+
+    intercityPerKmValue: {
+      color: textPrimary,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+
+    intercityReturnNotice: {
+      color: textSecondary,
+      fontSize: 11,
+      lineHeight: 16,
+      textAlign: 'center',
+      marginTop: 11,
+      paddingHorizontal: 4,
+    },
+
+    intercityDetailsButton: {
+      backgroundColor: '#f26522',
+      marginTop: 15,
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#f26522',
+      shadowOffset: {
+        width: 0,
+        height: 3,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 5,
+      elevation: 5,
+    },
+
+    intercityDetailsButtonPressed: {
+      opacity: 0.82,
+      transform: [{ scale: 0.99 }],
+    },
+
+    intercityDetailsButtonText: {
+      color: '#ffffff',
+      textAlign: 'center',
+      fontWeight: '900',
+      fontSize: 16,
+      letterSpacing: 0.6,
+    },
+
     contadorCard: { backgroundColor: bgCard, margin: 12, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: borderColor, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     contadorCardDark: { backgroundColor: bgSecondary },
     contadorContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
