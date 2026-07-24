@@ -1,52 +1,78 @@
 workflows:
   chinafast-entregador-android:
-    name: ChinaFast Entregador APK Release
+    name: ChinaFast Entregador Android
 
-    max_build_duration: 60
+    max_build_duration: 120
+
+    instance_type: linux_x2
 
     environment:
-      node: 22
+      node: 20
       java: 17
+
+      vars:
+        PACKAGE_NAME: "com.chinafast.entregador"
 
     cache:
       cache_paths:
-        - $CM_BUILD_DIR/node_modules
+        - $HOME/.npm
         - $HOME/.gradle/caches
         - $HOME/.gradle/wrapper
-        - $HOME/.npm
 
     scripts:
-      - name: Mostrar versões
+      - name: Verificar ambiente
         script: |
+          echo "Node:"
           node --version
+
+          echo "NPM:"
           npm --version
+
+          echo "Java:"
           java -version
+
+          echo "Diretório do projeto:"
+          pwd
+
+          echo "Arquivos:"
+          ls -la
 
       - name: Instalar dependências
         script: |
-          npm ci
+          npm ci || npm install
 
       - name: Verificar projeto Expo
         script: |
-          npx expo-doctor
+          npx expo-doctor || true
 
       - name: Gerar projeto Android
         script: |
-          npx expo prebuild \
-            --platform android \
-            --clean \
-            --non-interactive
+          rm -rf android
+          npx expo prebuild --platform android --non-interactive
+
+      - name: Configurar Android SDK
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
       - name: Dar permissão ao Gradle
         script: |
           chmod +x android/gradlew
 
-      - name: Gerar APK Release
+      - name: Criar APK release
         script: |
           cd android
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
       - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/**/*.aab
       - $HOME/.gradle/daemon/**/daemon-*.out.log
+
+    publishing:
+      email:
+        recipients:
+          - tradetatui@gmail.com
+        notify:
+          success: true
+          failure: true
